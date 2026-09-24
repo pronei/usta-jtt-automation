@@ -38,3 +38,73 @@ export const observations: Observations = {
   extraction_method: "test fixture",
   cards: [card],
 };
+import { DATE_CONTROL_ID, PREFIX, type CapturedForm } from "../src/web/context.js";
+
+export const HOME_NAME = "Momentum Tennis (Team A) - 10U Green";
+export const AWAY_NAME = "Away Club - 10U Green";
+export const homeRoster = [
+  ["h1", "Home Player"],
+  ["h2", "Second Home"],
+  ["h3", "Ana Ruiz"],
+  ["h4", "Third Home"],
+];
+export const awayRoster = [
+  ["a1", "Away Player"],
+  ["a2", "Second Away"],
+  ["a3", "Sam Li"],
+  ["a4", "Sam Liu"],
+];
+export const resultOptions = [
+  ["Completed", "1"],
+  ["Retired", "2"],
+  ["Default", "3"],
+  ["Dbl Default", "4"],
+  ["Timed Match", "5"],
+].map(([label, value]) => ({ label: label!, value: value! }));
+const blank = { label: "", value: "" };
+const players = (r: string[][]) => r.map(([value, label]) => ({ label: label!, value: value! }));
+const select = (id: string, options: { label: string; value: string }[], value = "") => ({
+  id,
+  tag: "SELECT" as const,
+  type: null,
+  value,
+  has_onchange: false,
+  options: [blank, ...options],
+});
+const input = (id: string) => ({
+  id,
+  tag: "INPUT" as const,
+  type: "text",
+  value: "",
+  has_onchange: false,
+});
+const winnerOptions = [
+  { label: HOME_NAME, value: "524502" },
+  { label: AWAY_NAME, value: "526172" },
+];
+function lineControls(control: string, doubles: boolean) {
+  const p = (side: "HomeTeam" | "VisitingTeam", n: number) =>
+    select(`${PREFIX}${control}_${side}_Player${n}`, players(side === "HomeTeam" ? homeRoster : awayRoster));
+  return [
+    p("HomeTeam", 1),
+    ...(doubles ? [p("HomeTeam", 2)] : []),
+    p("VisitingTeam", 1),
+    ...(doubles ? [p("VisitingTeam", 2)] : []),
+    input(`${PREFIX}${control}_HomeTeam_Set1`),
+    input(`${PREFIX}${control}_VisitingTeam_Set1`),
+    select(`${PREFIX}${control}_resultId`, resultOptions, "1"),
+    select(`${PREFIX}${control}_Winning_TeamId`, winnerOptions),
+  ];
+}
+export const capturedForm: CapturedForm = {
+  url: "https://tennislink.usta.com/TeamTennis/Secure/MatchScoreCard.aspx?MatchID=123456&MatchTab=M&Preview=No",
+  match_id: "123456",
+  captured_at: "2026-09-13T22:00:00.000Z",
+  header_text: `Match #123456 in 2026 Fall - JTT - Test ${HOME_NAME} [Team ID:5083524502 ] Vs. ${AWAY_NAME} [Team ID:5083526172] Date Scheduled: 09/13/2026 2:00 PM Match Win Criteria : Games won`,
+  labels: [
+    { id: `${PREFIX}ctl00_tblMatch_Ind`, text: "# 1  Singles - Scoring Format: Short Set (4 Games)" },
+    { id: `${PREFIX}ctl01_tblMatch_Ind`, text: "# 1  Doubles - Scoring Format: Short Set (4 Games)" },
+  ],
+  controls: [input(DATE_CONTROL_ID), ...lineControls("ctl00", false), ...lineControls("ctl01", true)],
+};
+export const formatRules = { "Short Set (4 Games)": "short" };
