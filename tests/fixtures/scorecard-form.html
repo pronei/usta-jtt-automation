@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Score Card</title></head>
+<body>
+<form id="aspnetForm" method="post" action="MatchScoreCard.aspx?MatchID=123456&amp;MatchTab=M&amp;Preview=No">
+<div id="ctl00_mainContent_MatchIndividual1">
+  <p>Match&nbsp;#123456&nbsp;in&nbsp;2026&nbsp;Fall 2026 - JTT - Test</p>
+  <p>Momentum Tennis (Team A) - 10U Green&nbsp; [Team ID:5083524502 ] &nbsp; Vs.&nbsp; Away Club - 10U Green&nbsp; [Team ID:5083526172]</p>
+  <p>Date Scheduled: &nbsp;09/13/2026&nbsp;2:00 PM&nbsp;&nbsp; Date Match Played(mm/dd/yyyy) :
+    <input type="text" id="ctl00_mainContent_MatchIndividual1_MatchActualDate" name="ctl00$mainContent$MatchIndividual1$MatchActualDate" value=""></p>
+  <p>Match Win Criteria : &nbsp;&nbsp;Games won</p>
+  <table id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl00_tblMatch_Ind">
+    <tr><td colspan="4"># 1  Singles - Scoring Format: Short Set (4 Games)</td></tr>
+    <tr>
+      <td><select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl00_HomeTeam_Player1"><option value=""></option><option value="h1">Home Player</option><option value="h2">Second Home</option><option value="h3">Ana Ruiz</option><option value="h4">Third Home</option></select></td>
+      <td><select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl00_VisitingTeam_Player1"><option value=""></option><option value="a1">Away Player</option><option value="a2">Second Away</option><option value="a3">Sam Li</option><option value="a4">Sam Liu</option></select></td>
+      <td><input type="text" id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl00_HomeTeam_Set1" value=""> <input type="text" id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl00_VisitingTeam_Set1" value=""></td>
+      <td><select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl00_resultId"><option value="1" selected>Completed</option><option value="2">Retired</option><option value="3">Default</option><option value="4">Dbl Default</option><option value="5">Timed Match</option></select>
+          <select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl00_Winning_TeamId"><option value=""></option><option value="524502">Momentum Tennis (Team A) - 10U Green</option><option value="526172">Away Club - 10U Green</option></select></td>
+    </tr>
+  </table>
+  <table id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_tblMatch_Ind">
+    <tr><td colspan="4"># 1  Doubles - Scoring Format: Short Set (4 Games)</td></tr>
+    <tr>
+      <td><select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_HomeTeam_Player1"><option value=""></option><option value="h1">Home Player</option><option value="h2">Second Home</option><option value="h3">Ana Ruiz</option><option value="h4">Third Home</option></select>
+          <select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_HomeTeam_Player2"><option value=""></option><option value="h1">Home Player</option><option value="h2">Second Home</option><option value="h3">Ana Ruiz</option><option value="h4">Third Home</option></select></td>
+      <td><select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_VisitingTeam_Player1"><option value=""></option><option value="a1">Away Player</option><option value="a2">Second Away</option><option value="a3">Sam Li</option><option value="a4">Sam Liu</option></select>
+          <select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_VisitingTeam_Player2"><option value=""></option><option value="a1">Away Player</option><option value="a2">Second Away</option><option value="a3">Sam Li</option><option value="a4">Sam Liu</option></select></td>
+      <td><input type="text" id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_HomeTeam_Set1" value=""> <input type="text" id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_VisitingTeam_Set1" value=""></td>
+      <td><select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_resultId"><option value="1" selected>Completed</option><option value="2">Retired</option><option value="3">Default</option><option value="4">Dbl Default</option><option value="5">Timed Match</option></select>
+          <select id="ctl00_mainContent_MatchIndividual1_Match_Ind_ctl01_Winning_TeamId"><option value=""></option><option value="524502">Momentum Tennis (Team A) - 10U Green</option><option value="526172">Away Club - 10U Green</option></select></td>
+    </tr>
+  </table>
+  <input type="submit" id="ctl00_mainContent_MatchIndividual1_cmdSubmit" value="Next">
+  <input type="submit" id="ctl00_mainContent_MatchIndividual1_cmdCancel" value="Cancel">
+</div>
+</form>
+</body></html>
