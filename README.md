@@ -137,3 +137,16 @@ The app never holds a TennisLink session: capture, fill and receipt run in the c
 `config/format-rules.local.json` maps the form's format label (`Short Set (4 Games)`) to a rule id in `config/scoring-rules.local.json`; an unmapped label refuses the capture. Sides printed the wrong way round are swapped on the job page before validation.
 
 Reachability: bind stays loopback; publish with a `cloudflared` tunnel to an https hostname and set `WEB_PUBLIC_URL` to it (the bookmarklet loads `/fill.js` from there).
+
+## Measurement (fall 2026)
+
+Four numbers per match, all derived from the audit events, none entered by hand:
+
+- errors caught, by category, tallied at approval (`ERRORS_CAUGHT`): roster mismatch, result not Completed, winner-first reorder, totals mismatch, score edited;
+- minutes from upload (`RECEIVED`) to approval (`APPROVED`);
+- minutes from the fill plan being served to the coach's browser (`FILL_PLAN_SERVED`) to the verified read-back (`POPULATION_VERIFIED`);
+- matches processed (`SUBMITTED`).
+
+Baseline: before the bookmarklet is used for entry, time at least three matches entered by hand, from opening the scorecard to pressing Finish, and record each on the report page. The comparison is baseline minutes against upload→approval plus fill→read-back.
+
+`pnpm report` prints the season table; the same table is at `/report` in the web app.
