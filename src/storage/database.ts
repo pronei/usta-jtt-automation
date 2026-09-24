@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import {
   assertTransition,
   PipelineStateSchema,
@@ -27,6 +27,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),at TEXT NOT NULL,actor TEXT NOT NULL,event TEXT NOT NULL,artifact_hash TEXT REFERENCES artifacts(hash));
       CREATE TABLE IF NOT EXISTS approvals(id TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS submissions(match_id TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),fingerprint TEXT NOT NULL,status TEXT NOT NULL,receipt TEXT);
+      CREATE TABLE IF NOT EXISTS codes(code TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),issued_by TEXT NOT NULL,issued_at TEXT NOT NULL,expires_at TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS immutable_events_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'Append-only audit'); END;
       CREATE TRIGGER IF NOT EXISTS immutable_events_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'Append-only audit'); END;
       CREATE TRIGGER IF NOT EXISTS immutable_artifacts_update BEFORE UPDATE ON artifacts BEGIN SELECT RAISE(ABORT,'Immutable artifact'); END;
@@ -85,6 +86,71 @@ export class Store {
         "SELECT e.*,a.json FROM events e JOIN artifacts a ON a.hash=e.artifact_hash WHERE job_id=? ORDER BY seq",
       )
       .all(id);
+  }
+  listJobs(): {
+    id: string;
+    state: PipelineState;
+    revision: number;
+    created_at: string;
+  }[] {
+    return this.db
+      .prepare(
+        "SELECT j.id,j.state,j.revision,(SELECT MIN(at) FROM events e WHERE e.job_id=j.id) AS created_at FROM jobs j ORDER BY created_at DESC",
+      )
+      .all()
+      .map((row) => ({
+        id: String(row.id),
+        state: PipelineStateSchema.parse(row.state),
+        revision: Number(row.revision),
+        created_at: String(row.created_at),
+      }));
+  }
+  latestArtifact(id: string, event: string): unknown {
+    const row = this.db
+      .prepare(
+        "SELECT a.json FROM events e JOIN artifacts a ON a.hash=e.artifact_hash WHERE e.job_id=? AND e.event=? ORDER BY e.seq DESC LIMIT 1",
+      )
+      .get(id, event);
+    return row ? JSON.parse(String(row.json)) : null;
+  }
+  /** Append an event without moving the job. Pipeline state names are reserved for moves. */
+  annotate(id: string, actor: string, event: string, data: unknown) {
+    if (PipelineStateSchema.safeParse(event).success)
+      throw new Error("Use checkpoint for state changes");
+    this.transaction(() => {
+      this.getJob(id);
+      this.event(id, actor, event, data);
+    });
+  }
+  issueCode(jobId: string, issuedBy: string, ttlHours = 24): string {
+    if (!issuedBy.trim()) throw new Error("Issuer required");
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    for (let i = 0; i < 8; i++) code += alphabet[randomInt(alphabet.length)];
+    const now = new Date(),
+      expires = new Date(now.getTime() + ttlHours * 3_600_000).toISOString();
+    this.transaction(() => {
+      this.getJob(jobId);
+      this.db
+        .prepare("INSERT INTO codes VALUES(?,?,?,?,?)")
+        .run(code, jobId, issuedBy, now.toISOString(), expires);
+      this.event(jobId, issuedBy, "CODE_ISSUED", { expires_at: expires });
+    });
+    return code;
+  }
+  codeFor(jobId: string): { code: string; expires_at: string } | null {
+    const row = this.db
+      .prepare(
+        "SELECT code,expires_at FROM codes WHERE job_id=? AND expires_at>? ORDER BY issued_at DESC LIMIT 1",
+      )
+      .get(jobId, new Date().toISOString());
+    return row ? { code: String(row.code), expires_at: String(row.expires_at) } : null;
+  }
+  resolveCode(code: string): { job_id: string; issued_by: string } | null {
+    const row = this.db
+      .prepare("SELECT job_id,issued_by FROM codes WHERE code=? AND expires_at>?")
+      .get(code.trim().toUpperCase(), new Date().toISOString());
+    return row ? { job_id: String(row.job_id), issued_by: String(row.issued_by) } : null;
   }
   private move(
     id: string,
