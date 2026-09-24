@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateScoreSheet } from "../src/tennis/score-validator.js";
-import { completedGames } from "../src/tennis/scoring-rules.js";
+import { completedGames, partialGames } from "../src/tennis/scoring-rules.js";
 import { assertTransition } from "../src/domain/pipeline-state.js";
 import { loadConfig } from "../src/config.js";
 import { fingerprint } from "../src/domain/fingerprint.js";
@@ -87,6 +87,16 @@ test("multiple scoring formats are explicit, including short sets", () => {
   assert.equal(completedGames(7, 6, rules[0]!), true);
   assert.equal(completedGames(8, 6, rules[0]!), false);
   assert.equal(completedGames(8, 6, { ...rules[0]!, tiebreak_at: null }), true);
+  assert.equal(partialGames(3, 1, short), true);
+  assert.equal(partialGames(3, 3, short), true);
+  assert.equal(partialGames(4, 2, short), false);
+  assert.equal(partialGames(4, 4, short), false);
+  assert.equal(partialGames(5, 3, short), false);
+  assert.equal(partialGames(6, 6, rules[0]!), true);
+  assert.equal(partialGames(6, 5, rules[0]!), true);
+  assert.equal(partialGames(7, 5, rules[0]!), false);
+  assert.equal(partialGames(7, 6, { ...rules[0]!, tiebreak_at: null }), true);
+  assert.equal(partialGames(9, 6, { ...rules[0]!, tiebreak_at: null }), false);
   const c = structuredClone(context);
   c.expected_lines[0]!.scoring_rule_id = "missing";
   assert.equal(validateScoreSheet(sheet, c, rules).valid, false);

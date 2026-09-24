@@ -40,3 +40,11 @@ export function completedGames(h: number, a: number, r: ScoringRule): boolean {
     (r.tiebreak_at === null || (hi <= r.tiebreak_at + 1 && lo < r.tiebreak_at))
   );
 }
+/** A score the format can reach while the set is still unfinished. */
+export function partialGames(h: number, a: number, r: ScoringRule): boolean {
+  if (completedGames(h, a, r)) return false;
+  const hi = Math.max(h, a),
+    lo = Math.min(h, a);
+  if (r.tiebreak_at === null) return hi < r.games_to_win || hi - lo <= 1;
+  return hi <= r.tiebreak_at && (hi < r.games_to_win || hi - lo <= 1);
+}
