@@ -108,3 +108,56 @@ export const capturedForm: CapturedForm = {
   controls: [input(DATE_CONTROL_ID), ...lineControls("ctl00", false), ...lineControls("ctl01", true)],
 };
 export const formatRules = { "Short Set (4 Games)": "short" };
+import { Store } from "../src/storage/database.js";
+import { validateScoreSheet } from "../src/tennis/score-validator.js";
+import { contextFromForm } from "../src/web/context.js";
+import { draftFromCard, reviewFromForm, sheetFromReview } from "../src/web/reconcile.js";
+import { shortSetRules } from "./fixtures.js";
+
+/** The reviewer's answers for `card` against `capturedForm`: singles timed 3-1, doubles completed 4-2. */
+export const reviewParams = () =>
+  new URLSearchParams({
+    "l0.home.0": "h1",
+    "l0.away.0": "a1",
+    "l0.home_games": "3",
+    "l0.away_games": "1",
+    "l0.status": "timed",
+    "l0.winner": "",
+    "l1.home.0": "h2",
+    "l1.home.1": "h4",
+    "l1.away.0": "a2",
+    "l1.away.1": "a3",
+    "l1.home_games": "4",
+    "l1.away_games": "2",
+    "l1.status": "completed",
+    "l1.winner": "",
+  });
+
+/** Runs the fixtures through reconcile, validation and approval in a throwaway store. */
+export function approvedFixture(edit?: (params: URLSearchParams) => void) {
+  const { context, form } = contextFromForm(capturedForm, formatRules);
+  const draft = draftFromCard(card, context, shortSetRules);
+  const params = reviewParams();
+  edit?.(params);
+  const sheet = sheetFromReview(reviewFromForm(params, draft), draft, card, context);
+  const result = validateScoreSheet(sheet, context, shortSetRules);
+  if (!result.valid) throw new Error(JSON.stringify(result.issues));
+  const store = new Store(":memory:");
+  try {
+    const id = store.createJob({ original_sha256: "x", original_path: "x.pdf" }, "coach");
+    for (const s of [
+      "IMAGE_PREPARED",
+      "MATCH_DISCOVERED",
+      "TENNISLINK_MATCH_FOUND",
+      "OFFICIAL_CONTEXT_CAPTURED",
+      "SCORE_SHEET_INTERPRETED",
+      "VALIDATING",
+      "VALIDATED",
+    ] as const)
+      store.checkpoint(id, store.getJob(id).revision, s, "coach", s === "VALIDATED" ? result.value : { stage: s });
+    const approved = store.approve(id, store.getJob(id).revision, result.value, "coach");
+    return { approved, context, form, sheet, draft };
+  } finally {
+    store.close();
+  }
+}
