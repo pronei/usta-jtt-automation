@@ -16,7 +16,8 @@
     "format": "prettier --write src tests config README.md",
     "dry-run": "tsx src/cli/dry-run.ts",
     "scores": "tsx src/cli/read-scores.ts",
-    "serve": "tsx src/cli/serve.ts"
+    "serve": "tsx src/cli/serve.ts",
+    "report": "tsx src/cli/report.ts"
   },
   "dependencies": {
     "playwright": "^1.55.0",
