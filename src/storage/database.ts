@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { randomInt, randomUUID } from "node:crypto";
+import { z } from "zod";
 import {
   assertTransition,
   PipelineStateSchema,
@@ -9,14 +10,25 @@ import {
 } from "../domain/pipeline-state.js";
 import {
   ApprovedMatchSchema,
+  MatchIdSchema,
   ValidatedMatchSchema,
   type ApprovedMatch,
   type ValidatedMatch,
 } from "../domain/schemas.js";
 import { canonical, fingerprint } from "../domain/fingerprint.js";
+export const BaselineSchema = z.strictObject({
+  match_id: MatchIdSchema,
+  minutes: z.number().positive().max(600),
+  recorded_by: z.string().trim().min(1),
+  note: z.string().max(500),
+});
+export type Baseline = z.infer<typeof BaselineSchema> & { at: string };
 export class Store {
   private db: DatabaseSync;
-  constructor(path: string) {
+  constructor(
+    path: string,
+    private readonly now: () => Date = () => new Date(),
+  ) {
     if (path !== ":memory:")
       mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path);
@@ -28,6 +40,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS approvals(id TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS submissions(match_id TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),fingerprint TEXT NOT NULL,status TEXT NOT NULL,receipt TEXT);
       CREATE TABLE IF NOT EXISTS codes(code TEXT PRIMARY KEY,job_id TEXT NOT NULL REFERENCES jobs(id),issued_by TEXT NOT NULL,issued_at TEXT NOT NULL,expires_at TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS baselines(id INTEGER PRIMARY KEY,match_id TEXT NOT NULL,minutes REAL NOT NULL,recorded_by TEXT NOT NULL,note TEXT NOT NULL,at TEXT NOT NULL);
       CREATE TRIGGER IF NOT EXISTS immutable_events_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'Append-only audit'); END;
       CREATE TRIGGER IF NOT EXISTS immutable_events_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'Append-only audit'); END;
       CREATE TRIGGER IF NOT EXISTS immutable_artifacts_update BEFORE UPDATE ON artifacts BEGIN SELECT RAISE(ABORT,'Immutable artifact'); END;
@@ -58,7 +71,7 @@ export class Store {
       .prepare(
         "INSERT INTO events(job_id,at,actor,event,artifact_hash) VALUES(?,?,?,?,?)",
       )
-      .run(job, new Date().toISOString(), actor, event, hash);
+      .run(job, this.now().toISOString(), actor, event, hash);
   }
   createJob(
     image: { original_sha256: string; original_path: string },
@@ -127,7 +140,7 @@ export class Store {
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let code = "";
     for (let i = 0; i < 8; i++) code += alphabet[randomInt(alphabet.length)];
-    const now = new Date(),
+    const now = this.now(),
       expires = new Date(now.getTime() + ttlHours * 3_600_000).toISOString();
     this.transaction(() => {
       this.getJob(jobId);
@@ -143,14 +156,32 @@ export class Store {
       .prepare(
         "SELECT code,expires_at FROM codes WHERE job_id=? AND expires_at>? ORDER BY issued_at DESC LIMIT 1",
       )
-      .get(jobId, new Date().toISOString());
+      .get(jobId, this.now().toISOString());
     return row ? { code: String(row.code), expires_at: String(row.expires_at) } : null;
   }
   resolveCode(code: string): { job_id: string; issued_by: string } | null {
     const row = this.db
       .prepare("SELECT job_id,issued_by FROM codes WHERE code=? AND expires_at>?")
-      .get(code.trim().toUpperCase(), new Date().toISOString());
+      .get(code.trim().toUpperCase(), this.now().toISOString());
     return row ? { job_id: String(row.job_id), issued_by: String(row.issued_by) } : null;
+  }
+  recordBaseline(raw: unknown) {
+    const b = BaselineSchema.parse(raw);
+    this.db
+      .prepare("INSERT INTO baselines(match_id,minutes,recorded_by,note,at) VALUES(?,?,?,?,?)")
+      .run(b.match_id, b.minutes, b.recorded_by, b.note, this.now().toISOString());
+  }
+  listBaselines(): Baseline[] {
+    return this.db
+      .prepare("SELECT match_id,minutes,recorded_by,note,at FROM baselines ORDER BY at,id")
+      .all()
+      .map((r) => ({
+        match_id: String(r.match_id),
+        minutes: Number(r.minutes),
+        recorded_by: String(r.recorded_by),
+        note: String(r.note),
+        at: String(r.at),
+      }));
   }
   private move(
     id: string,
@@ -205,7 +236,7 @@ export class Store {
         validation,
         approval_id: randomUUID(),
         approved_by: actor,
-        approved_at: new Date().toISOString(),
+        approved_at: this.now().toISOString(),
       });
       this.move(id, revision, "APPROVED", actor, approved);
       this.db
