@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { z } from "zod";
 import { fingerprint } from "../domain/fingerprint.js";
+import { renderReport, seasonReport } from "../measure/report.js";
 import type { PipelineState } from "../domain/pipeline-state.js";
 import {
   ApprovedMatchSchema,
@@ -32,6 +33,7 @@ import {
   jobView,
   listView,
   loginView,
+  reportView,
   type JobModel,
   type JobRow,
 } from "./views.js";
@@ -262,7 +264,9 @@ async function api(
   }
   if (action === "fill" && method === "GET") {
     if (job.state !== "APPROVED") throw new HttpError(409, `Fill is not expected in state ${job.state}`);
-    return json(res, 200, fillPlan(deps, id), CORS);
+    const plan = fillPlan(deps, id);
+    store.annotate(id, actor, "FILL_PLAN_SERVED", { ops: plan.ops.length });
+    return json(res, 200, plan, CORS);
   }
   if (action === "readback" && method === "POST") {
     if (job.state !== "APPROVED")
@@ -313,6 +317,18 @@ async function pages(
   if (path === "/" && method === "GET") return render("Matches", listView(jobRows(deps)));
   if (path === "/bookmarklet" && method === "GET")
     return render("Bookmark", bookmarkletView(deps.publicUrl));
+  if (path === "/report" && method === "GET")
+    return render("Season report", reportView(renderReport(seasonReport(store), new Date())));
+  if (path === "/baselines" && method === "POST") {
+    const form = new URLSearchParams((await readBody(req)).toString());
+    store.recordBaseline({
+      match_id: form.get("match_id") ?? "",
+      minutes: Number(form.get("minutes")),
+      recorded_by: reviewer,
+      note: form.get("note") ?? "",
+    });
+    return redirect(res, "/report");
+  }
   if (path === "/upload" && method === "POST") {
     const type = req.headers["content-type"] ?? "";
     if (!type.startsWith("multipart/form-data")) throw new HttpError(400, "Expected a multipart upload");

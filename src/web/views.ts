@@ -29,7 +29,7 @@ export type JobModel = {
   receipt: string | null;
 };
 
-const nav = html`<p><a href="/">Matches</a> · <a href="/bookmarklet">Bookmark</a> · <form method="post" action="/logout" style="display:inline"><button type="submit">Sign out</button></form></p>`;
+const nav = html`<p><a href="/">Matches</a> · <a href="/bookmarklet">Bookmark</a> · <a href="/report">Report</a> · <form method="post" action="/logout" style="display:inline"><button type="submit">Sign out</button></form></p>`;
 
 export function loginView(error: string | null): Html {
   return html`<h1>Score entry</h1>
@@ -178,4 +178,17 @@ export function jobView(m: JobModel): Html {
 
 export function errorView(message: string): Html {
   return html`${nav}<h1>Something refused</h1><p class="error">ERROR: ${message}</p><p><a href="/">Back to matches</a></p>`;
+}
+
+export function reportView(markdown: string): Html {
+  return html`${nav}<h1>Season report</h1>
+    <pre class="mono" style="white-space:pre-wrap">${markdown}</pre>
+    <form method="post" action="/baselines" class="card">
+      <h2>Record a manual entry time</h2>
+      <p class="muted">Time a match entered by hand, from opening the scorecard to pressing Finish. At least three before the bookmarklet is used.</p>
+      <label for="b-match">Match id</label><input id="b-match" name="match_id" required pattern="[0-9]+" />
+      <label for="b-min">Minutes</label><input id="b-min" name="minutes" type="number" step="0.5" min="0.5" required />
+      <label for="b-note">Note (device, paper or PDF, who)</label><input id="b-note" name="note" maxlength="500" />
+      <p><button type="submit" class="primary">Record</button></p>
+    </form>`;
 }

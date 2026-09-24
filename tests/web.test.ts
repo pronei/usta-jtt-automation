@@ -145,3 +145,16 @@ test("fill plan, a failed then a matching read-back, and the receipt take the jo
   assert.ok((await (await get(`/jobs/${jobId}`)).text()).includes("Games 7 3"));
   assert.equal((await api(`/api/jobs/${jobId}/fill?code=${code}`, null, "GET")).status, 409);
 });
+
+test("the report page shows the season numbers and takes a baseline", async () => {
+  const before = await (await get("/report")).text();
+  assert.match(before, /submitted: 1/);
+  assert.ok(before.includes("123456"));
+  const r = await post("/baselines", new URLSearchParams({ match_id: "2743892", minutes: "19", note: "laptop, paper card" }));
+  assert.equal(r.status, 303);
+  const after = await (await get("/report")).text();
+  assert.match(after, /2743892/);
+  assert.match(after, /Median manual entry: 19 min \(1 recorded\)/);
+  assert.equal((await post("/baselines", new URLSearchParams({ match_id: "x", minutes: "19", note: "" }))).status, 400);
+  assert.ok(store.history(jobId).some((row) => row.event === "FILL_PLAN_SERVED"));
+});
