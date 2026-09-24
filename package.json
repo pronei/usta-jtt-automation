@@ -9,13 +9,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/domain.test.ts tests/storage-submit.test.ts tests/dry-run.test.ts tests/academy.test.ts tests/store-web.test.ts tests/web-lib.test.ts tests/upload.test.ts tests/context.test.ts tests/reconcile.test.ts tests/fill.test.ts",
+    "test": "tsx --test tests/domain.test.ts tests/storage-submit.test.ts tests/dry-run.test.ts tests/academy.test.ts tests/store-web.test.ts tests/web-lib.test.ts tests/upload.test.ts tests/context.test.ts tests/reconcile.test.ts tests/fill.test.ts tests/web.test.ts",
     "capture": "tsx src/cli/capture-context.ts",
     "check": "pnpm typecheck && pnpm test && pnpm test:browser",
     "test:browser": "tsx --test tests/browser.test.ts",
     "format": "prettier --write src tests config README.md",
     "dry-run": "tsx src/cli/dry-run.ts",
-    "scores": "tsx src/cli/read-scores.ts"
+    "scores": "tsx src/cli/read-scores.ts",
+    "serve": "tsx src/cli/serve.ts"
   },
   "dependencies": {
     "playwright": "^1.55.0",
