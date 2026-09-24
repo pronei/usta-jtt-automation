@@ -78,7 +78,15 @@ export const LineInterpretationSchema = z.strictObject({
   away_players: z.array(PlayerInterpretationSchema),
   sets: z.array(SetInterpretationSchema),
   observed_winner: side.nullable(),
-  status: z.enum(["completed", "retired", "default", "walkover", "unknown"]),
+  status: z.enum([
+    "completed",
+    "timed",
+    "retired",
+    "default",
+    "double_default",
+    "walkover",
+    "unknown",
+  ]),
   needs_review: z.boolean(),
   ambiguities: z.array(id),
 });
@@ -90,31 +98,45 @@ export const InterpretedScoreSheetSchema = z.strictObject({
   needs_review: z.boolean(),
   ambiguities: z.array(id),
 });
+export const ResultStatusSchema = z.enum([
+  "completed",
+  "timed",
+  "retired",
+  "default",
+  "double_default",
+]);
+export const MatchLineSchema = z
+  .strictObject({
+    position: id,
+    home_player_ids: z.array(id).min(1).max(2),
+    away_player_ids: z.array(id).min(1).max(2),
+    sets: z.array(
+      z.strictObject({
+        set_number: z.number().int().positive(),
+        kind: z.enum(["games", "match_tiebreak"]),
+        home: score,
+        away: score,
+      }),
+    ),
+    winner: side.nullable(),
+    status: ResultStatusSchema,
+  })
+  .superRefine((l, ctx) => {
+    if ((l.winner === null) !== (l.status === "double_default"))
+      ctx.addIssue({
+        code: "custom",
+        message: "Winner is required unless the line is a double default",
+      });
+    if (l.sets.length === 0 && l.status !== "default" && l.status !== "double_default")
+      ctx.addIssue({ code: "custom", message: "Scores are required for this result" });
+    if (l.sets.length > 0 && l.status === "double_default")
+      ctx.addIssue({ code: "custom", message: "A double default records no scores" });
+  });
 export const MatchPayloadSchema = z.strictObject({
   match_id: MatchIdSchema,
   home_team_id: id,
   away_team_id: id,
-  lines: z
-    .array(
-      z.strictObject({
-        position: id,
-        home_player_ids: z.array(id).min(1).max(2),
-        away_player_ids: z.array(id).min(1).max(2),
-        sets: z
-          .array(
-            z.strictObject({
-              set_number: z.number().int().positive(),
-              kind: z.enum(["games", "match_tiebreak"]),
-              home: score,
-              away: score,
-            }),
-          )
-          .min(1),
-        winner: side,
-        status: z.literal("completed"),
-      }),
-    )
-    .min(1),
+  lines: z.array(MatchLineSchema).min(1),
 });
 export const ValidationIssueSchema = z.strictObject({
   code: id,
@@ -147,3 +169,5 @@ export type ValidatedMatch = z.infer<typeof ValidatedMatchSchema>;
 export type ApprovedMatch = z.infer<typeof ApprovedMatchSchema>;
 export type ValidationIssue = z.infer<typeof ValidationIssueSchema>;
 export type MatchDiscovery = z.infer<typeof MatchDiscoverySchema>;
+export type ResultStatus = z.infer<typeof ResultStatusSchema>;
+export type MatchLine = z.infer<typeof MatchLineSchema>;

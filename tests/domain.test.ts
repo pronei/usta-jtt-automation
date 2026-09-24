@@ -8,6 +8,7 @@ import { fingerprint } from "../src/domain/fingerprint.js";
 import {
   ApprovedMatchSchema,
   InterpretedScoreSheetSchema,
+  MatchPayloadSchema,
 } from "../src/domain/schemas.js";
 import { context, rules, sheet } from "./fixtures.js";
 test("strict AI data cannot parse as an approval", () => {
@@ -119,3 +120,32 @@ test("feature flag is explicit and defaults off", () => {
 });
 test("fingerprint ignores object property order", () =>
   assert.equal(fingerprint({ b: 2, a: 1 }), fingerprint({ a: 1, b: 2 })));
+test("payload schema ties the winner to the result status", () => {
+  const line = {
+    position: "1S",
+    home_player_ids: ["h1"],
+    away_player_ids: ["a1"],
+    sets: [{ set_number: 1, kind: "games" as const, home: 3, away: 1 }],
+    winner: "home" as const,
+    status: "timed" as const,
+  };
+  const payload = { match_id: "1", home_team_id: "h", away_team_id: "a", lines: [line] };
+  assert.doesNotThrow(() => MatchPayloadSchema.parse(payload));
+  assert.throws(() => MatchPayloadSchema.parse({ ...payload, lines: [{ ...line, winner: null }] }));
+  assert.throws(() =>
+    MatchPayloadSchema.parse({ ...payload, lines: [{ ...line, status: "double_default" }] }),
+  );
+  assert.throws(() =>
+    MatchPayloadSchema.parse({ ...payload, lines: [{ ...line, status: "completed", sets: [] }] }),
+  );
+  assert.doesNotThrow(() =>
+    MatchPayloadSchema.parse({
+      ...payload,
+      lines: [{ ...line, status: "double_default", sets: [], winner: null }],
+    }),
+  );
+  assert.doesNotThrow(() =>
+    MatchPayloadSchema.parse({ ...payload, lines: [{ ...line, status: "default", sets: [] }] }),
+  );
+  assert.throws(() => MatchPayloadSchema.parse({ ...payload, lines: [{ ...line, status: "walkover" }] }));
+});
