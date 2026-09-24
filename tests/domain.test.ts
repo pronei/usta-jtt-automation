@@ -10,7 +10,14 @@ import {
   InterpretedScoreSheetSchema,
   MatchPayloadSchema,
 } from "../src/domain/schemas.js";
-import { context, rules, sheet } from "./fixtures.js";
+import {
+  context,
+  rules,
+  sheet,
+  shortSetContext,
+  shortSetRules,
+  shortSetSheet,
+} from "./fixtures.js";
 test("strict AI data cannot parse as an approval", () => {
   assert.throws(() => ApprovedMatchSchema.parse(sheet));
   assert.throws(() =>
@@ -41,7 +48,7 @@ for (const [name, mutate] of Object.entries({
   "winner conflict": (s: typeof sheet) => {
     s.lines[0]!.observed_winner = "away";
   },
-  retirement: (s: typeof sheet) => {
+  "retirement of a decided line": (s: typeof sheet) => {
     s.lines[0]!.status = "retired";
   },
   "missing line": (s: typeof sheet) => {
@@ -148,4 +155,96 @@ test("payload schema ties the winner to the result status", () => {
     MatchPayloadSchema.parse({ ...payload, lines: [{ ...line, status: "default", sets: [] }] }),
   );
   assert.throws(() => MatchPayloadSchema.parse({ ...payload, lines: [{ ...line, status: "walkover" }] }));
+});
+
+const codes = (r: ReturnType<typeof validateScoreSheet>) =>
+  r.valid ? [] : r.issues.map((i) => i.code);
+const short = (
+  home: number,
+  away: number,
+  status: Parameters<typeof shortSetSheet>[2],
+  winner: "home" | "away" | null = null,
+) => validateScoreSheet(shortSetSheet(home, away, status, winner), shortSetContext, shortSetRules);
+
+test("timed: winner by games, status carried into the payload", () => {
+  const r = short(3, 1, "timed");
+  assert.equal(r.valid, true);
+  if (r.valid) {
+    assert.equal(r.value.payload.lines[0]?.status, "timed");
+    assert.equal(r.value.payload.lines[0]?.winner, "home");
+    assert.deepEqual(r.value.payload.lines[0]?.sets, [
+      { set_number: 1, kind: "games", home: 3, away: 1 },
+    ]);
+  }
+});
+test("timed with equal games needs a named winner", () => {
+  assert.ok(codes(short(2, 2, "timed")).includes("TIMED_TIE"));
+  const named = short(2, 2, "timed", "away");
+  assert.equal(named.valid, true);
+  if (named.valid) assert.equal(named.value.payload.lines[0]?.winner, "away");
+});
+test("a finished score is not timed; an unfinished score is not completed", () => {
+  assert.ok(codes(short(4, 1, "timed")).includes("STATUS_MISMATCH"));
+  assert.ok(codes(short(3, 1, "completed")).includes("INCOMPLETE_MATCH"));
+  assert.equal(short(4, 1, "completed").valid, true);
+  assert.equal(short(4, 3, "completed").valid, true);
+});
+test("unreachable scores are rejected under every status", () => {
+  for (const status of ["completed", "timed", "retired", "default"] as const)
+    assert.ok(codes(short(5, 3, status, "home")).includes("INVALID_SET"), status);
+  assert.ok(codes(short(4, 4, "timed", "home")).includes("INVALID_SET"));
+});
+test("retired and default keep the scores as played and need a named winner", () => {
+  assert.ok(codes(short(2, 1, "retired")).includes("WINNER_REQUIRED"));
+  const r = short(2, 1, "retired", "away");
+  assert.equal(r.valid, true);
+  if (r.valid) {
+    assert.equal(r.value.payload.lines[0]?.winner, "away");
+    assert.equal(r.value.payload.lines[0]?.status, "retired");
+    assert.deepEqual(r.value.payload.lines[0]?.sets, [
+      { set_number: 1, kind: "games", home: 2, away: 1 },
+    ]);
+  }
+  assert.ok(codes(short(4, 1, "retired", "home")).includes("STATUS_MISMATCH"));
+  const d = short(1, 0, "default", "home");
+  assert.equal(d.valid, true);
+  if (d.valid) assert.equal(d.value.payload.lines[0]?.status, "default");
+});
+test("default without scores; double default without scores or winner", () => {
+  const noScores = shortSetSheet(0, 0, "default", "home");
+  noScores.lines[0]!.sets = [];
+  const d = validateScoreSheet(noScores, shortSetContext, shortSetRules);
+  assert.equal(d.valid, true);
+  if (d.valid) assert.deepEqual(d.value.payload.lines[0]?.sets, []);
+  const dd = shortSetSheet(0, 0, "double_default");
+  dd.lines[0]!.sets = [];
+  const r = validateScoreSheet(dd, shortSetContext, shortSetRules);
+  assert.equal(r.valid, true);
+  if (r.valid) assert.equal(r.value.payload.lines[0]?.winner, null);
+  const ddWinner = structuredClone(dd);
+  ddWinner.lines[0]!.observed_winner = "home";
+  assert.ok(
+    codes(validateScoreSheet(ddWinner, shortSetContext, shortSetRules)).includes("WINNER_NOT_ALLOWED"),
+  );
+  assert.ok(codes(short(1, 0, "double_default")).includes("SCORES_NOT_ALLOWED"));
+});
+test("walkover is not a form result", () => {
+  assert.ok(codes(short(4, 0, "walkover", "home")).includes("UNSUPPORTED_STATUS"));
+});
+test("a decided best-of-three cannot be recorded as retired", () => {
+  const s = structuredClone(sheet);
+  s.lines[0]!.status = "retired";
+  assert.ok(codes(validateScoreSheet(s, context, rules)).includes("STATUS_MISMATCH"));
+});
+test("timed after one completed set of a best-of-three: winner by total games", () => {
+  const s = structuredClone(sheet);
+  s.lines[0]!.status = "timed";
+  s.lines[0]!.observed_winner = null;
+  s.lines[0]!.sets = [
+    { set_number: 1, kind: "games", home: 6, away: 4, needs_review: false, ambiguity: null },
+    { set_number: 2, kind: "games", home: 2, away: 5, needs_review: false, ambiguity: null },
+  ];
+  const r = validateScoreSheet(s, context, rules);
+  assert.equal(r.valid, true);
+  if (r.valid) assert.equal(r.value.payload.lines[0]?.winner, "away");
 });
