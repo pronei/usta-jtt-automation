@@ -82,3 +82,35 @@ export const sheet: InterpretedScoreSheet = {
   needs_review: false,
   ambiguities: [],
 };
+export const shortSetRules = [
+  {
+    id: "short",
+    sets_to_win: 1,
+    games_to_win: 4,
+    tiebreak_at: 3,
+    deciding_match_tiebreak_to: null,
+    allow_player_reuse: false,
+  },
+];
+export const shortSetContext: OfficialMatchContext = {
+  ...context,
+  expected_lines: [
+    { position: "1S", type: "singles", players_per_side: 1, scoring_rule_id: "short" },
+  ],
+};
+type LineStatus = InterpretedScoreSheet["lines"][number]["status"];
+/** One singles line with one set, for status tests. */
+export function shortSetSheet(
+  home: number,
+  away: number,
+  status: LineStatus,
+  observed_winner: "home" | "away" | null = null,
+): InterpretedScoreSheet {
+  const s = structuredClone(sheet);
+  s.lines[0]!.sets = [
+    { set_number: 1, kind: "games", home, away, needs_review: false, ambiguity: null },
+  ];
+  s.lines[0]!.status = status;
+  s.lines[0]!.observed_winner = observed_winner;
+  return s;
+}
