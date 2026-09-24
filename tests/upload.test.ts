@@ -47,7 +47,7 @@ test("ingest refuses non-PDF bytes and parser output for a different file", asyn
       /Not a PDF/,
     );
     const wrong: Extractor = async (p, o) => ({
-      ...(await fakeExtractor(p, o)),
+      ...((await fakeExtractor(p, o)) as Record<string, unknown>),
       source_sha256: "0".repeat(64),
     });
     await assert.rejects(ingestPdf(store, wrong, dir, pdf, "coach"), /does not match/);
