@@ -8,6 +8,7 @@ import {
   signSession,
   verifySession,
 } from "../src/web/auth.js";
+import { loadWebConfig } from "../src/web/config.js";
 
 test("html escapes values, keeps fragments, renders arrays and drops null", () => {
   const inner = html`<b>${"<i>"}</b>`;
@@ -40,4 +41,15 @@ test("reviewer tokens resolve to names and sessions are signed", () => {
       { name: "A", token: "y".repeat(16) },
     ]),
   );
+});
+
+test("web config needs a secret and an https public url", () => {
+  const base = { WEB_PUBLIC_URL: "https://scores.example.org", WEB_SESSION_SECRET: "s".repeat(32) };
+  const c = loadWebConfig(base);
+  assert.equal(c.WEB_PORT, 8787);
+  assert.equal(c.PYTHON_BIN, ".venv/bin/python");
+  assert.equal(loadWebConfig({ ...base, WEB_PUBLIC_URL: "http://localhost:8787" }).WEB_PORT, 8787);
+  assert.throws(() => loadWebConfig({ ...base, WEB_PUBLIC_URL: "http://scores.example.org" }));
+  assert.throws(() => loadWebConfig({ ...base, WEB_SESSION_SECRET: "short" }));
+  assert.throws(() => loadWebConfig({ WEB_SESSION_SECRET: "s".repeat(32) }));
 });
