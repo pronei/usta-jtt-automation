@@ -96,7 +96,7 @@ Chromium was installed locally under ignored `var/playwright`. To reuse it in a 
 
 ## Local digital scorecard dry run
 
-The read-only parser supports the supplied digital scorecard layout. It does not OCR handwriting or call a vision API. Install `pypdf` and `pypdfium2` in your Python environment, then run:
+The read-only parser supports the supplied digital scorecard layout. It does not OCR handwriting or call a vision API. Install `pypdf`, `pypdfium2` and `pillow` in your Python environment (`python3 -m venv .venv && .venv/bin/pip install pypdf pypdfium2 pillow`), then run:
 
 ```sh
 python scripts/extract-digital-scorecards.py /path/to/scorecards.pdf var/pdf-extraction
