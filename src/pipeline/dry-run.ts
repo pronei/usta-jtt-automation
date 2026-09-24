@@ -35,6 +35,8 @@ export const ObservationsSchema = z.strictObject({
   extraction_method: name,
   cards: z.array(ObservedCardSchema).min(1),
 });
+export type ObservedCard = z.infer<typeof ObservedCardSchema>;
+export type Observations = z.infer<typeof ObservationsSchema>;
 export function inspectObservedCard(raw: unknown) {
   const card = ObservedCardSchema.parse(raw);
   const home = card.lines.reduce((sum, line) => sum + line.home_games, 0);
