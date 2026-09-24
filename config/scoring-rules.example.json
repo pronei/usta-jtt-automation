@@ -1,0 +1,26 @@
+[
+  {
+    "id": "example-best-of-three",
+    "sets_to_win": 2,
+    "games_to_win": 6,
+    "tiebreak_at": 6,
+    "deciding_match_tiebreak_to": 10,
+    "allow_player_reuse": false
+  },
+  {
+    "id": "example-short-set",
+    "sets_to_win": 1,
+    "games_to_win": 4,
+    "tiebreak_at": 3,
+    "deciding_match_tiebreak_to": null,
+    "allow_player_reuse": false
+  },
+  {
+    "id": "example-pro-set",
+    "sets_to_win": 1,
+    "games_to_win": 8,
+    "tiebreak_at": 8,
+    "deciding_match_tiebreak_to": null,
+    "allow_player_reuse": false
+  }
+]

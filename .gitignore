@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+var/
+.auth/
+playwright-report/
+test-results/
+*.sqlite*
+.DS_Store
+config/*.local.json
+.venv/

@@ -1,0 +1,24 @@
+{
+  "entry_ready": "REPLACE_WITH_VERIFIED_SELECTOR",
+  "match_number_input": "REPLACE_WITH_VERIFIED_SELECTOR",
+  "lookup_button": "REPLACE_WITH_VERIFIED_SELECTOR",
+  "match_ready": "REPLACE_WITH_VERIFIED_SELECTOR",
+  "match_id": "REPLACE_WITH_VERIFIED_SELECTOR",
+  "date": null,
+  "result_status": "REPLACE_WITH_VERIFIED_SELECTOR",
+  "unreported_text": "REPLACE_WITH_EXACT_STATUS_TEXT",
+  "reported_text": "REPLACE_WITH_EXACT_STATUS_TEXT",
+  "home": {
+    "team_id": "REPLACE_WITH_VERIFIED_SELECTOR",
+    "team_name": "REPLACE_WITH_VERIFIED_SELECTOR",
+    "roster_options": "REPLACE_WITH_ONE_ROSTER_SELECT option"
+  },
+  "away": {
+    "team_id": "REPLACE_WITH_VERIFIED_SELECTOR",
+    "team_name": "REPLACE_WITH_VERIFIED_SELECTOR",
+    "roster_options": "REPLACE_WITH_ONE_ROSTER_SELECT option"
+  },
+  "line_rows": "REPLACE_WITH_VERIFIED_SELECTOR",
+  "line_position": "REPLACE_WITH_ROW_RELATIVE_SELECTOR",
+  "line_type": "REPLACE_WITH_ROW_RELATIVE_SELECTOR"
+}
