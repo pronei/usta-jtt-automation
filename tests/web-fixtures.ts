@@ -161,3 +161,35 @@ export function approvedFixture(edit?: (params: URLSearchParams) => void) {
     store.close();
   }
 }
+
+import type { ExportDocument } from "../src/web/import.js";
+
+/** A finalised two-court card as the Momentum platform exports it: one default and one double default among the eight lines. */
+export const exportDocument: ExportDocument = {
+  source: "momentum-tennis-platform",
+  scorecard_id: "0f9d2c1a-7b3e-4e5d-9a6b-2c1d3e4f5a6b",
+  exported_at: "2026-10-04T22:10:00.000Z",
+  format: "two_court",
+  set_games: 4,
+  card: {
+    match_id: "654321",
+    date_text: "10/04/26",
+    time_text: "2:00 PM",
+    division: "10U Green",
+    home_team: "Momentum Tennis - 10U Green",
+    away_team: "Away Club - 10U Green",
+    location: "Test Park",
+    lines: [
+      { round: 1, position_text: "#1 Singles", home_names: ["Home Player"], away_names: ["Away Player"], home_games: 4, away_games: 1, result: "completed", winner: "home" },
+      { round: 1, position_text: "#4 Doubles", home_names: ["Second Home", "Third Home"], away_names: ["Second Away", "Sam Li"], home_games: 3, away_games: 2, result: "timed", winner: "home" },
+      { round: 2, position_text: "#2 Singles", home_names: ["Ana Ruiz"], away_names: ["Sam Liu"], home_games: 1, away_games: 4, result: "completed", winner: "away" },
+      { round: 2, position_text: "#3 Doubles", home_names: ["Home Player", "Ana Ruiz"], away_names: ["Away Player", "Sam Liu"], home_games: 2, away_games: 2, result: "timed", winner: "away" },
+      { round: 3, position_text: "#3 Singles", home_names: ["Second Home"], away_names: ["Second Away"], home_games: 2, away_games: 1, result: "retired", winner: "home" },
+      { round: 3, position_text: "#2 Doubles", home_names: ["Third Home", "Ana Ruiz"], away_names: [], home_games: null, away_games: null, result: "default", winner: "home" },
+      { round: 4, position_text: "#4 Singles", home_names: [], away_names: [], home_games: null, away_games: null, result: "double_default", winner: null },
+      { round: 4, position_text: "#1 Doubles", home_names: ["Home Player", "Second Home"], away_names: ["Away Player", "Sam Li"], home_games: 4, away_games: 2, result: "completed", winner: "home" },
+    ],
+    printed_home_total: 16,
+    printed_away_total: 12,
+  },
+};

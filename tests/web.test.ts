@@ -11,7 +11,7 @@ import { DATE_CONTROL_ID, PREFIX } from "../src/web/context.js";
 import { createApp } from "../src/web/server.js";
 import type { Extractor } from "../src/web/upload.js";
 import { shortSetRules } from "./fixtures.js";
-import { capturedForm, formatRules, observations, reviewParams } from "./web-fixtures.js";
+import { capturedForm, exportDocument, formatRules, observations, reviewParams } from "./web-fixtures.js";
 
 const TOKEN = "t".repeat(24);
 const extractor: Extractor = async (pdfPath) => ({
@@ -157,4 +157,15 @@ test("the report page shows the season numbers and takes a baseline", async () =
   assert.match(after, /Median manual entry: 19 min \(1 recorded\)/);
   assert.equal((await post("/baselines", new URLSearchParams({ match_id: "x", minutes: "19", note: "" }))).status, 400);
   assert.ok(store.history(jobId).some((row) => row.event === "FILL_PLAN_SERVED"));
+});
+
+test("a platform scorecard export uploads like a PDF", async () => {
+  const form = new FormData();
+  form.set("pdf", new Blob([JSON.stringify(exportDocument)], { type: "application/json" }), "scorecard-654321.json");
+  assert.equal((await post("/upload", form)).status, 303);
+  const list = await (await get("/")).text();
+  assert.ok(list.includes("654321"));
+  const other = new FormData();
+  other.set("pdf", new Blob(["hello"], { type: "text/plain" }), "notes.txt");
+  assert.equal((await post("/upload", other)).status, 400);
 });

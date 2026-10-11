@@ -7,7 +7,7 @@ export const ObservedCardSchema = z.strictObject({
   page: z.number().int().positive(),
   match_id: z.string().regex(/^\d+$/),
   date_text: name,
-  time_text: name,
+  time_text: z.string(),
   division: name,
   home_team: name,
   away_team: name,
@@ -19,10 +19,16 @@ export const ObservedCardSchema = z.strictObject({
       z.strictObject({
         round: z.number().int().positive(),
         position_text: z.string().regex(/^#\d+ (Singles|Doubles)$/),
-        home_names: z.array(name).min(1).max(2),
-        away_names: z.array(name).min(1).max(2),
-        home_games: count,
-        away_games: count,
+        home_names: z.array(name).max(2),
+        away_names: z.array(name).max(2),
+        home_games: count.nullable(),
+        away_games: count.nullable(),
+        // Present on cards exported from the Momentum platform, absent on parsed PDFs.
+        result: z
+          .enum(["completed", "timed", "retired", "default", "double_default"])
+          .nullable()
+          .optional(),
+        winner: z.enum(["home", "away"]).nullable().optional(),
       }),
     )
     .min(1),
@@ -39,8 +45,8 @@ export type ObservedCard = z.infer<typeof ObservedCardSchema>;
 export type Observations = z.infer<typeof ObservationsSchema>;
 export function inspectObservedCard(raw: unknown) {
   const card = ObservedCardSchema.parse(raw);
-  const home = card.lines.reduce((sum, line) => sum + line.home_games, 0);
-  const away = card.lines.reduce((sum, line) => sum + line.away_games, 0);
+  const home = card.lines.reduce((sum, line) => sum + (line.home_games ?? 0), 0);
+  const away = card.lines.reduce((sum, line) => sum + (line.away_games ?? 0), 0);
   const issues = [
     {
       code: "OFFICIAL_CONTEXT_MISSING",

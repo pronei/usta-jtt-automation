@@ -44,8 +44,8 @@ export function loginView(error: string | null): Html {
 export function listView(rows: JobRow[]): Html {
   return html`${nav}<h1>Matches</h1>
     <form method="post" action="/upload" enctype="multipart/form-data" class="card">
-      <label for="pdf">Digital scorecard PDF</label>
-      <input id="pdf" name="pdf" type="file" accept="application/pdf" required />
+      <label for="pdf">Scorecard: the digital PDF, or a JSON export from the Momentum platform</label>
+      <input id="pdf" name="pdf" type="file" accept="application/pdf,application/json,.json" required />
       <p><button type="submit" class="primary">Upload</button></p>
     </form>
     <table>
@@ -155,7 +155,7 @@ export function jobView(m: JobModel): Html {
           <table><tr><th>Line</th><th>${m.card.home_team}</th><th>${m.card.away_team}</th><th>Games</th></tr>
           ${m.card.lines.map((l) => html`<tr><td class="n">${l.position_text}</td><td>${l.home_names.join(" / ")}</td><td>${l.away_names.join(" / ")}</td><td class="n">${l.home_games}–${l.away_games}</td></tr>`)}
           <tr><td></td><td></td><td>printed totals</td><td class="n">${m.card.printed_home_total}–${m.card.printed_away_total}</td></tr>
-          <tr><td></td><td></td><td>computed totals</td><td class="n">${m.card.lines.reduce((n, l) => n + l.home_games, 0)}–${m.card.lines.reduce((n, l) => n + l.away_games, 0)}</td></tr></table></div>`
+          <tr><td></td><td></td><td>computed totals</td><td class="n">${m.card.lines.reduce((n, l) => n + (l.home_games ?? 0), 0)}–${m.card.lines.reduce((n, l) => n + (l.away_games ?? 0), 0)}</td></tr></table></div>`
       : null}
     ${m.draft && canEdit
       ? html`<form method="post" action="/jobs/${id}/reconcile" class="card">

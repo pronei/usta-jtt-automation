@@ -26,6 +26,7 @@ import {
   reviewFromForm,
   sheetFromReview,
 } from "./reconcile.js";
+import { ingestExport } from "./import.js";
 import { ingestPdf, type Extractor } from "./upload.js";
 import {
   bookmarkletView,
@@ -336,8 +337,13 @@ async function pages(
       headers: { "content-type": type },
     }).formData();
     const file = form.get("pdf");
-    if (!(file instanceof File)) throw new HttpError(400, "Choose a PDF");
-    await ingestPdf(store, deps.extractor, deps.uploadDir, Buffer.from(await file.arrayBuffer()), reviewer);
+    if (!(file instanceof File)) throw new HttpError(400, "Choose a file");
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (bytes.subarray(0, 5).toString() === "%PDF-")
+      await ingestPdf(store, deps.extractor, deps.uploadDir, bytes, reviewer);
+    else if (bytes.toString("utf8", 0, 64).trimStart().startsWith("{"))
+      await ingestExport(store, deps.uploadDir, bytes, reviewer);
+    else throw new HttpError(400, "Choose a scorecard PDF or a scorecard export (JSON)");
     return redirect(res, "/");
   }
   const m = /^\/jobs\/([0-9a-f-]{36})(?:\/([a-z]+))?$/.exec(path);

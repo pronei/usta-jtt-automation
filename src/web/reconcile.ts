@@ -6,6 +6,7 @@ import {
   type InterpretedScoreSheet,
   type MatchPayload,
   type OfficialMatchContext,
+  type ResultStatus,
 } from "../domain/schemas.js";
 import { completedGames, partialGames, type ScoringRule } from "../tennis/scoring-rules.js";
 
@@ -24,7 +25,7 @@ export type DraftLine = {
   away: Slot[];
   home_games: number | null;
   away_games: number | null;
-  suggested_status: "completed" | "timed" | "unknown";
+  suggested_status: ResultStatus | "unknown";
   suggested_winner: "home" | "away" | null;
 };
 export type Draft = { lines: DraftLine[] };
@@ -106,13 +107,16 @@ export function draftFromCard(
           suggested_status: "unknown" as const,
           suggested_winner: null,
         };
-      const suggested_status = !rule
-        ? "unknown"
-        : completedGames(line.home_games, line.away_games, rule)
-          ? "completed"
-          : partialGames(line.home_games, line.away_games, rule)
-            ? "timed"
-            : "unknown";
+      // A card exported from the platform carries the coach's result and winner; a parsed PDF does not.
+      const suggested_status: DraftLine["suggested_status"] =
+        line.result ??
+        (!rule || line.home_games === null || line.away_games === null
+          ? "unknown"
+          : completedGames(line.home_games, line.away_games, rule)
+            ? "completed"
+            : partialGames(line.home_games, line.away_games, rule)
+              ? "timed"
+              : "unknown");
       return {
         position: expected.position,
         type: expected.type,
@@ -123,11 +127,14 @@ export function draftFromCard(
         away_games: line.away_games,
         suggested_status,
         suggested_winner:
+          line.winner ??
+          (line.home_games === null ||
+          line.away_games === null ||
           line.home_games === line.away_games
             ? null
             : line.home_games > line.away_games
               ? "home"
-              : "away",
+              : "away"),
       };
     }),
   };
@@ -254,8 +261,8 @@ export function errorsCaught(
   });
   const status_not_completed = payload.lines.filter((l) => l.status !== "completed").length;
   const winner_first_reorder = payload.lines.filter((l) => l.winner === "away").length;
-  const home = card.lines.reduce((n, l) => n + l.home_games, 0),
-    away = card.lines.reduce((n, l) => n + l.away_games, 0);
+  const home = card.lines.reduce((n, l) => n + (l.home_games ?? 0), 0),
+    away = card.lines.reduce((n, l) => n + (l.away_games ?? 0), 0);
   const totals_mismatch =
     home !== card.printed_home_total || away !== card.printed_away_total ? 1 : 0;
   return {
