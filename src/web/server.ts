@@ -15,7 +15,7 @@ import type { Store } from "../storage/database.js";
 import { validateScoreSheet } from "../tennis/score-validator.js";
 import type { ScoringRule } from "../tennis/scoring-rules.js";
 import { parseCookies, reviewerForToken, signSession, verifySession, type Reviewers } from "./auth.js";
-import { FormSummarySchema, contextFromForm } from "./context.js";
+import { FormSummarySchema, TENNISLINK_ORIGIN, contextFromForm } from "./context.js";
 import { buildFillPlan, compareReadBack, type FillPlan } from "./fill.js";
 import { page, type Html } from "./html.js";
 import {
@@ -59,7 +59,6 @@ class HttpError extends Error {
     super(message);
   }
 }
-const TENNISLINK_ORIGIN = "https://tennislink.usta.com";
 const MAX_BODY = 20 * 1024 * 1024;
 const CORS = {
   "access-control-allow-origin": TENNISLINK_ORIGIN,

@@ -6,12 +6,21 @@
   var PREFIX = "ctl00_mainContent_MatchIndividual1_Match_Ind_";
   var DATE_ID = "ctl00_mainContent_MatchIndividual1_MatchActualDate";
   var LABEL = /^#\s*\d+\s+(Singles|Doubles)\s*-\s*Scoring Format:/;
+  var ORIGIN = "https://tennislink.usta.com";
+  var ENTRY_URL = ORIGIN + "/TeamTennis/Secure/EnterMatchNumber.aspx";
 
+  /* entry and preview: one match's Score Card. denied: where TennisLink sends a signed-out visitor,
+     or one without captain rights; the match id is gone by then. tennislink: any other TennisLink page. */
   function pageKind(loc) {
     if (loc.hostname !== "tennislink.usta.com") return "other";
-    if (loc.pathname.toLowerCase() !== "/teamtennis/secure/matchscorecard.aspx") return "other";
+    var path = loc.pathname.toLowerCase();
+    if (path === "/teamtennis/accessdenied.htm") return "denied";
+    if (path !== "/teamtennis/secure/matchscorecard.aspx") return "tennislink";
     var preview = (new URLSearchParams(loc.search).get("Preview") || "No").toLowerCase();
     return preview === "yes" ? "preview" : "entry";
+  }
+  function scoreCardUrl(matchId) {
+    return ORIGIN + "/TeamTennis/Secure/MatchScoreCard.aspx?MatchID=" + encodeURIComponent(matchId) + "&MatchTab=M&Preview=No";
   }
   function matchIdOf(loc) {
     return new URLSearchParams(loc.search).get("MatchID") || "";
@@ -87,7 +96,23 @@
     return out;
   }
 
-  function show(text) {
+  /* True when the page has score boxes and every one is empty: TennisLink holds no scores for the match. */
+  function formIsBlank(doc) {
+    var nodes = doc.querySelectorAll("select, input"), boxes = 0, i, n;
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      if (n.id.indexOf(PREFIX) !== 0 || !/_(HomeTeam|VisitingTeam)_Set\d+$/.test(n.id)) continue;
+      boxes++;
+      if (n.value) return false;
+    }
+    return boxes > 0;
+  }
+  /* The preview's Finish button is still on the page: Finish has not been pressed. */
+  function hasFinishButton(doc) {
+    return doc.querySelectorAll("[id$='cmdPreviewConfirm']").length > 0;
+  }
+
+  function show(text, link, linkText) {
     var old = document.getElementById("jtt-overlay");
     if (old) old.parentNode.removeChild(old);
     var box = document.createElement("div");
@@ -100,6 +125,13 @@
     close.onclick = function () { box.parentNode.removeChild(box); };
     box.appendChild(close);
     box.appendChild(document.createTextNode(text));
+    if (link) {
+      var a = document.createElement("a");
+      a.href = link;
+      a.textContent = linkText || link;
+      a.setAttribute("style", "display:block;margin-top:12px;color:#e8a33d;font-weight:600");
+      box.appendChild(a);
+    }
     document.body.appendChild(box);
   }
   function request(app, path, method, body) {
@@ -118,13 +150,28 @@
 
   function main(app) {
     var kind = pageKind(location);
-    if (kind === "other") { alert("Open the match's Score Card page on tennislink.usta.com, then tap the bookmark."); return; }
+    if (kind === "other") { alert("This bookmark works on tennislink.usta.com. Sign in to TennisLink, open the Score Card page for the match, then tap it again."); return; }
+    if (kind === "denied") {
+      show("TennisLink refused the last page: you are signed out, or this account is not a captain or coach on the match. Sign in on the match entry page, open the Score Card for the match again, then tap the bookmark.", ENTRY_URL, "Open the TennisLink match entry page");
+      return;
+    }
     var pageMatch = matchIdOf(location);
     var code = sessionStorage.getItem("jtt_code") || prompt("Match code from the score-entry app");
     if (!code) return;
     code = code.trim().toUpperCase();
     request(app, "/api/handshake", "POST", { code: code }).then(function (h) {
-      if (h.match_id !== pageMatch) throw new Error("This code is for match " + h.match_id + "; this page is match " + pageMatch + ".");
+      if (!/^\d+$/.test(h.match_id || "")) throw new Error("The app has no match number for this code.");
+      var cardLink = scoreCardUrl(h.match_id), cardText = "Open the Score Card for match " + h.match_id;
+      if (kind === "tennislink") {
+        sessionStorage.setItem("jtt_code", code);
+        show("Code accepted for match " + h.match_id + ". Open its Score Card page and tap the bookmark there. If TennisLink then says you do not have privileges, sign in first (Sign In at the top of TennisLink) and open the link again.", cardLink, cardText);
+        return;
+      }
+      if (h.match_id !== pageMatch) {
+        sessionStorage.removeItem("jtt_code");
+        show("This code is for match " + h.match_id + "; this page is match " + pageMatch + ". To enter match " + h.match_id + ", open its Score Card. To enter this match instead, tap the bookmark again and type its code.", cardLink, cardText);
+        return;
+      }
       sessionStorage.setItem("jtt_code", code);
       var job = "/api/jobs/" + h.job_id;
       if (h.stage === "capture") {
@@ -149,6 +196,14 @@
         });
       }
       if (h.stage === "confirm") {
+        if (hasFinishButton(document)) {
+          show("Finish has not been pressed yet. Check the preview, press Finish, then tap the bookmark on the page that follows.");
+          return;
+        }
+        if (kind === "entry" && formIsBlank(document)) {
+          show("TennisLink shows no scores entered for this match, so nothing was submitted. This happens when the TennisLink sign-in lapses before Finish. Tell the reviewer: the match needs checking in the app before it is entered again.");
+          return;
+        }
         return request(app, job + "/receipt", "POST", {
           code: code,
           url: location.href,
@@ -165,7 +220,11 @@
     });
   }
 
-  window.__jtt = { pageKind: pageKind, readForm: readForm, applyOps: applyOps, readFields: readFields, main: main };
+  window.__jtt = {
+    pageKind: pageKind, readForm: readForm, applyOps: applyOps, readFields: readFields,
+    scoreCardUrl: scoreCardUrl, formIsBlank: formIsBlank, hasFinishButton: hasFinishButton,
+    ENTRY_URL: ENTRY_URL, main: main
+  };
   var script = document.currentScript;
   if (script && script.src) main(new URL(script.src).origin);
 })();

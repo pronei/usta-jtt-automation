@@ -169,3 +169,22 @@ test("a platform scorecard export uploads like a PDF", async () => {
   other.set("pdf", new Blob(["hello"], { type: "text/plain" }), "notes.txt");
   assert.equal((await post("/upload", other)).status, 400);
 });
+
+test("the job page tells the coach where to sign in, which page to open and which code to type", async () => {
+  const job = store
+    .listJobs()
+    .find(
+      (j) =>
+        (store.latestArtifact(j.id, "MATCH_DISCOVERED") as { observed_card: { match_id: string } })
+          .observed_card.match_id === "654321",
+    )!;
+  const jobCode = store.codeFor(job.id)!.code;
+  const text = await (await get(`/jobs/${job.id}`)).text();
+  assert.ok(text.includes("For the coach"));
+  assert.ok(text.includes("MatchScoreCard.aspx?MatchID=654321&amp;MatchTab=M&amp;Preview=No"));
+  assert.ok(text.includes("EnterMatchNumber.aspx"));
+  assert.ok(text.includes(`Code: ${jobCode}`));
+  assert.ok(!(await (await get(`/jobs/${jobId}`)).text()).includes("For the coach"));
+  const bookmark = await (await get("/bookmarklet")).text();
+  assert.ok(bookmark.includes("location.hostname!==&#39;tennislink.usta.com&#39;"));
+});

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PREFIX, contextFromForm } from "../src/web/context.js";
+import { MATCH_ENTRY_URL, PREFIX, contextFromForm, scoreCardUrl } from "../src/web/context.js";
 import { AWAY_NAME, HOME_NAME, capturedForm, formatRules } from "./web-fixtures.js";
 
 test("captured form becomes an official context and a form summary", () => {
@@ -65,4 +65,13 @@ test("a form with a score already entered is reported; postback selects are list
   assert.deepEqual(contextFromForm(postback, formatRules).form.postback_selects, [
     `${PREFIX}ctl00_resultId`,
   ]);
+});
+
+test("deep links: the match entry page, and one match's Score Card", () => {
+  assert.equal(MATCH_ENTRY_URL, "https://tennislink.usta.com/TeamTennis/Secure/EnterMatchNumber.aspx");
+  assert.equal(
+    scoreCardUrl("2743892"),
+    "https://tennislink.usta.com/TeamTennis/Secure/MatchScoreCard.aspx?MatchID=2743892&MatchTab=M&Preview=No",
+  );
+  assert.throws(() => scoreCardUrl("27a"));
 });

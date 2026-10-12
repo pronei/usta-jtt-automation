@@ -4,6 +4,7 @@ import type { ApprovedMatch, OfficialMatchContext, ValidationIssue } from "../do
 import type { ObservedCard } from "../pipeline/dry-run.js";
 import type { Draft, ErrorsCaught, Review } from "./reconcile.js";
 import { STATUS_LABEL } from "./fill.js";
+import { MATCH_ENTRY_URL, scoreCardUrl } from "./context.js";
 
 export type JobRow = {
   id: string;
@@ -61,14 +62,20 @@ export function listView(rows: JobRow[]): Html {
     </table>`;
 }
 
+/** The bookmark. It loads the fill script only on TennisLink, so the script never runs on the USTA sign-in page. */
+export function bookmarkletHref(publicUrl: string): string {
+  const origin = new URL(publicUrl).origin;
+  return `javascript:(function(){if(location.hostname!=='tennislink.usta.com'){alert('This bookmark works on tennislink.usta.com. Sign in to TennisLink, open the Score Card page for the match, then tap it again.');return;}var s=document.createElement('script');s.src='${origin}/fill.js?'+Date.now();document.body.appendChild(s);})();`;
+}
+
 export function bookmarkletView(publicUrl: string): Html {
-  const href = `javascript:(function(){var s=document.createElement('script');s.src='${publicUrl}/fill.js?'+Date.now();document.body.appendChild(s);})();`;
+  const href = bookmarkletHref(publicUrl);
   return html`${nav}<h1>The bookmark</h1>
     <div class="card">
       <p>Drag this link to the bookmarks bar, or long-press and copy its address: <a href="${href}">Score entry</a></p>
       <p>On a phone: save any page as a bookmark, then edit the bookmark and replace its address with:</p>
       <pre class="mono" style="white-space:pre-wrap;word-break:break-all">${href}</pre>
-      <p>Use: sign in to TennisLink, open the match's Score Card page, tap the bookmark, enter the match code. Tap it again after Finish.</p>
+      <p>Use: sign in to TennisLink on the <a href="${MATCH_ENTRY_URL}">match entry page</a>, open the match's Score Card page (each match page in this app links to it), tap the bookmark, enter the match code. Tap it again after Finish.</p>
     </div>`;
 }
 
@@ -84,6 +91,29 @@ const stateText: Partial<Record<PipelineState, string>> = {
   SUBMITTED: "Submitted.",
   FAILED: "Failed. Start a new job from the PDF.",
 };
+
+/** The states in which the coach has a step to take on TennisLink: capture, fill, receipt. */
+const COACH_STATES: PipelineState[] = ["MATCH_DISCOVERED", "APPROVED", "SUBMITTING"];
+
+function coachCard(matchId: string, code: string, teams: string): Html {
+  const card = scoreCardUrl(matchId);
+  const message = [
+    `Match ${matchId}: ${teams}`,
+    `1. Sign in to TennisLink: ${MATCH_ENTRY_URL}`,
+    `2. Open the Score Card: ${card}`,
+    `3. Tap the Score entry bookmark. Code: ${code}`,
+  ].join("\n");
+  return html`<div class="card">
+    <h2>For the coach</h2>
+    <ol>
+      <li>Sign in to TennisLink on the <a href="${MATCH_ENTRY_URL}">match entry page</a> (Sign In at the top).</li>
+      <li>Open the <a href="${card}">Score Card for match ${matchId}</a>. If TennisLink says you do not have privileges, you are signed out or not a captain on this match: sign in and open it again. If it still refuses, type ${matchId} on the match entry page.</li>
+      <li>Tap the Score entry bookmark and enter code <span class="mono">${code}</span>.</li>
+    </ol>
+    <p class="muted">To send to a coach:</p>
+    <pre class="mono" style="white-space:pre-wrap;word-break:break-all">${message}</pre>
+  </div>`;
+}
 
 const statusOptions = [...(Object.keys(STATUS_LABEL) as (keyof typeof STATUS_LABEL)[]), "unknown"] as const;
 
@@ -147,6 +177,7 @@ export function jobView(m: JobModel): Html {
         <form method="post" action="/jobs/${id}/reopen" style="display:inline"><button type="submit">Reopen</button></form>` : null}
       ${state === "SUBMITTING" ? html`<form method="post" action="/jobs/${id}/unknown" style="display:inline"><button type="submit">Mark outcome unknown</button></form>` : null}
     </div>
+    ${m.card && m.code && COACH_STATES.includes(state) ? coachCard(m.card.match_id, m.code.code, teams) : null}
     ${m.context && m.context.result_status !== "unreported" ? html`<p class="error">ERROR: TennisLink already shows scores for this match. Nothing will be filled.</p>` : null}
     ${m.issues ? html`<div class="card"><h2>Problems</h2><ul>${m.issues.map((i) => html`<li class="error">ERROR: ${i.path || "match"}: ${i.message} (${i.code})</li>`)}</ul></div>` : null}
     ${m.mismatches ? html`<div class="card"><h2>Read-back differed</h2><table><tr><th>Field</th><th>Expected</th><th>Found</th></tr>${m.mismatches.map((x) => html`<tr><td class="n">${x.id}</td><td class="n">${x.expected}</td><td class="n">${x.actual}</td></tr>`)}</table></div>` : null}

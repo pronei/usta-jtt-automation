@@ -60,11 +60,11 @@ export function makeDoc(elements: FakeEl[], bodyText: string) {
     body: { innerText: bodyText, textContent: bodyText },
     currentScript: null,
     getElementById: (id: string) => all.find((e) => e.id === id) ?? null,
-    querySelectorAll: (selector: string) =>
-      selector === "select, input"
-        ? all.filter((e) => e.tagName === "SELECT" || e.tagName === "INPUT")
-        : selector === "[id$='_tblMatch_Ind']"
-          ? all.filter((e) => e.id.endsWith("_tblMatch_Ind"))
-          : [],
+    querySelectorAll: (selector: string) => {
+      if (selector === "select, input")
+        return all.filter((e) => e.tagName === "SELECT" || e.tagName === "INPUT");
+      const suffix = /^\[id\$='(.+)'\]$/.exec(selector);
+      return suffix ? all.filter((e) => e.id.endsWith(suffix[1]!)) : [];
+    },
   };
 }

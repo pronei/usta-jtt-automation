@@ -2,8 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
-import { CapturedFormSchema, DATE_CONTROL_ID, PREFIX, contextFromForm } from "../src/web/context.js";
-import { input, makeDoc, select, table } from "./fake-dom.js";
+import {
+  CapturedFormSchema,
+  DATE_CONTROL_ID,
+  MATCH_ENTRY_URL,
+  PREFIX,
+  contextFromForm,
+  scoreCardUrl,
+} from "../src/web/context.js";
+import { el, input, makeDoc, select, table } from "./fake-dom.js";
 import { formatRules } from "./web-fixtures.js";
 
 type Jtt = {
@@ -11,6 +18,10 @@ type Jtt = {
   readForm(doc: unknown, loc: unknown): unknown;
   applyOps(doc: unknown, ops: { id: string; kind: string; value: string }[]): string[];
   readFields(doc: unknown, ids: string[]): Record<string, string>;
+  scoreCardUrl(matchId: string): string;
+  formIsBlank(doc: unknown): boolean;
+  hasFinishButton(doc: unknown): boolean;
+  ENTRY_URL: string;
 };
 function load(doc: unknown): Jtt {
   const sandbox: Record<string, unknown> = { document: doc, URLSearchParams, Event: class { constructor(public type: string) {} }, console };
@@ -40,12 +51,35 @@ const location = {
   href: "https://tennislink.usta.com/TeamTennis/Secure/MatchScoreCard.aspx?MatchID=123456&MatchTab=M&Preview=No",
 };
 
-test("pageKind tells the entry page, the preview page and everything else apart", () => {
+test("pageKind tells the entry page, the preview page, the refusal page, the rest of TennisLink and other sites apart", () => {
   const jtt = load(makeDoc([], ""));
   assert.equal(jtt.pageKind(location), "entry");
   assert.equal(jtt.pageKind({ ...location, search: "?MatchID=1&Preview=Yes" }), "preview");
-  assert.equal(jtt.pageKind({ ...location, pathname: "/Dashboard/Main/" }), "other");
+  assert.equal(jtt.pageKind({ ...location, pathname: "/TeamTennis/AccessDenied.htm", search: "" }), "denied");
+  assert.equal(jtt.pageKind({ ...location, pathname: "/teamtennis/accessdenied.htm", search: "" }), "denied");
+  assert.equal(jtt.pageKind({ ...location, pathname: "/Dashboard/Main/" }), "tennislink");
+  assert.equal(jtt.pageKind({ ...location, pathname: "/TeamTennis/Secure/EnterMatchNumber.aspx" }), "tennislink");
+  assert.equal(jtt.pageKind({ ...location, hostname: "account.usta.com" }), "other");
   assert.equal(jtt.pageKind({ ...location, hostname: "example.org" }), "other");
+});
+
+test("the script builds the same TennisLink links as the server", () => {
+  const jtt = load(makeDoc([], ""));
+  assert.equal(jtt.scoreCardUrl("2743892"), scoreCardUrl("2743892"));
+  assert.equal(jtt.ENTRY_URL, MATCH_ENTRY_URL);
+});
+
+test("a blank score form and an unpressed Finish button are recognised", () => {
+  const jtt = load(makeDoc([], ""));
+  assert.equal(jtt.formIsBlank(makeDoc(line("ctl00"), bodyText)), true);
+  assert.equal(
+    jtt.formIsBlank(makeDoc([...line("ctl00"), input(`${PREFIX}ctl01_HomeTeam_Set1`, "3")], bodyText)),
+    false,
+  );
+  assert.equal(jtt.formIsBlank(makeDoc([], bodyText)), false);
+  const finish = el({ id: "ctl00_mainContent_MatchIndividual1_cmdPreviewConfirm", tagName: "INPUT" });
+  assert.equal(jtt.hasFinishButton(makeDoc([finish], bodyText)), true);
+  assert.equal(jtt.hasFinishButton(makeDoc(line("ctl00"), bodyText)), false);
 });
 
 test("readForm captures what contextFromForm needs, and nothing outside the form", () => {

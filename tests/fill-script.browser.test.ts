@@ -2,7 +2,14 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium, type Browser } from "playwright";
-import { CapturedFormSchema, DATE_CONTROL_ID, PREFIX, contextFromForm } from "../src/web/context.js";
+import {
+  CapturedFormSchema,
+  DATE_CONTROL_ID,
+  MATCH_ENTRY_URL,
+  PREFIX,
+  contextFromForm,
+  scoreCardUrl,
+} from "../src/web/context.js";
 import { buildFillPlan } from "../src/web/fill.js";
 import { approvedFixture, formatRules } from "./web-fixtures.js";
 
@@ -22,14 +29,15 @@ after(async () => {
 });
 
 /** A page whose TennisLink is the fixture and whose app is a scripted API; returns what the script posted. */
-async function openWith(stage: "capture" | "fill", plan: unknown = null) {
+async function openWith(stage: string, plan: unknown = null, url = PAGE, body?: string) {
   const posts: { path: string; body: unknown }[] = [];
+  let dialogs = 0;
   const context = await browser.newContext();
   const page = await context.newPage();
   const fixture = await readFile("tests/fixtures/scorecard-form.html", "utf8");
   const script = await readFile("public/fill.js", "utf8");
   await page.route("https://tennislink.usta.com/**", (route) =>
-    route.fulfill({ status: 200, contentType: "text/html", body: fixture }),
+    route.fulfill({ status: 200, contentType: "text/html", body: body ?? fixture }),
   );
   await page.route(`${APP}/**`, async (route) => {
     const url = new URL(route.request().url());
@@ -46,11 +54,14 @@ async function openWith(stage: "capture" | "fill", plan: unknown = null) {
     if (url.pathname.endsWith("/readback")) return reply({ ok: true, mismatches: [], note: "Press Next." });
     return reply({ error: "unexpected " + url.pathname });
   });
-  page.on("dialog", (d) => d.accept("ABCD2345"));
-  await page.goto(PAGE);
+  page.on("dialog", (d) => {
+    dialogs++;
+    void d.accept("ABCD2345");
+  });
+  await page.goto(url);
   await page.addScriptTag({ url: `${APP}/fill.js` });
   await page.waitForSelector("#jtt-overlay");
-  return { page, posts, close: () => context.close() };
+  return { page, posts, dialogs: () => dialogs, close: () => context.close() };
 }
 
 test("capture: the script posts a form the server can turn into a context", async () => {
@@ -88,6 +99,59 @@ test("fill: the script sets every planned field and posts the read-back", async 
     assert.equal(Object.keys(readback.fields).length, plan.ops.length);
     assert.equal(readback.fields[`${PREFIX}ctl00_resultId`], "5");
     assert.equal(await page.inputValue(`#ctl00_mainContent_MatchIndividual1_cmdSubmit`), "Next");
+  } finally {
+    await close();
+  }
+});
+
+const plainPage = (text: string) =>
+  `<!doctype html><html><head><meta charset="utf-8"></head><body><p>${text}</p></body></html>`;
+
+test("on another TennisLink page the script takes the code and links to the match's Score Card", async () => {
+  const { page, posts, close } = await openWith("capture", null, MATCH_ENTRY_URL, plainPage("Enter match number"));
+  try {
+    assert.match((await page.textContent("#jtt-overlay")) ?? "", /Code accepted for match 123456/);
+    assert.equal(await page.getAttribute("#jtt-overlay a", "href"), scoreCardUrl("123456"));
+    assert.deepEqual(posts.map((p) => p.path), ["/api/handshake"]);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("jtt_code")), "ABCD2345");
+  } finally {
+    await close();
+  }
+});
+
+test("on TennisLink's refusal page the script explains signing in and calls nothing", async () => {
+  const { page, posts, dialogs, close } = await openWith(
+    "capture",
+    null,
+    "https://tennislink.usta.com/TeamTennis/AccessDenied.htm",
+    plainPage("You do not have Privileges To Perform This Action."),
+  );
+  try {
+    assert.match((await page.textContent("#jtt-overlay")) ?? "", /signed out/);
+    assert.equal(await page.getAttribute("#jtt-overlay a", "href"), MATCH_ENTRY_URL);
+    assert.equal(posts.length, 0);
+    assert.equal(dialogs(), 0);
+  } finally {
+    await close();
+  }
+});
+
+test("a code for another match links to that match and is forgotten", async () => {
+  const { page, close } = await openWith("capture", null, PAGE.replace("MatchID=123456", "MatchID=999999"));
+  try {
+    assert.match((await page.textContent("#jtt-overlay")) ?? "", /this page is match 999999/);
+    assert.equal(await page.getAttribute("#jtt-overlay a", "href"), scoreCardUrl("123456"));
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("jtt_code")), null);
+  } finally {
+    await close();
+  }
+});
+
+test("confirm on a blank score card records no receipt", async () => {
+  const { page, posts, close } = await openWith("confirm");
+  try {
+    assert.match((await page.textContent("#jtt-overlay")) ?? "", /nothing was submitted/);
+    assert.ok(!posts.some((p) => p.path.endsWith("/receipt")));
   } finally {
     await close();
   }

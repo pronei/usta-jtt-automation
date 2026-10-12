@@ -9,6 +9,8 @@ import {
   verifySession,
 } from "../src/web/auth.js";
 import { loadWebConfig } from "../src/web/config.js";
+import { bookmarkletHref } from "../src/web/views.js";
+import { runInNewContext } from "node:vm";
 
 test("html escapes values, keeps fragments, renders arrays and drops null", () => {
   const inner = html`<b>${"<i>"}</b>`;
@@ -52,4 +54,30 @@ test("web config needs a secret and an https public url", () => {
   assert.throws(() => loadWebConfig({ ...base, WEB_PUBLIC_URL: "http://scores.example.org" }));
   assert.throws(() => loadWebConfig({ ...base, WEB_SESSION_SECRET: "short" }));
   assert.throws(() => loadWebConfig({ WEB_SESSION_SECRET: "s".repeat(32) }));
+});
+
+test("the bookmark loads the fill script on TennisLink and nowhere else", () => {
+  const href = bookmarkletHref("https://scores.example.org/");
+  assert.ok(href.startsWith("javascript:"));
+  const run = (hostname: string) => {
+    const alerts: string[] = [],
+      appended: { src: string }[] = [];
+    runInNewContext(href.slice("javascript:".length), {
+      location: { hostname },
+      alert: (m: string) => alerts.push(m),
+      Date,
+      document: {
+        createElement: () => ({ src: "" }),
+        body: { appendChild: (n: { src: string }) => appended.push(n) },
+      },
+    });
+    return { alerts, appended };
+  };
+  const signIn = run("account.usta.com");
+  assert.equal(signIn.appended.length, 0);
+  assert.match(signIn.alerts[0] ?? "", /tennislink\.usta\.com/);
+  assert.equal(run("example.org").appended.length, 0);
+  const ok = run("tennislink.usta.com");
+  assert.equal(ok.alerts.length, 0);
+  assert.match(ok.appended[0]?.src ?? "", /^https:\/\/scores\.example\.org\/fill\.js\?\d+$/);
 });
