@@ -4,7 +4,7 @@ import type { ApprovedMatch, OfficialMatchContext, ValidationIssue } from "../do
 import type { ObservedCard } from "../pipeline/dry-run.js";
 import type { Draft, ErrorsCaught, Review } from "./reconcile.js";
 import { STATUS_LABEL } from "./fill.js";
-import { MATCH_ENTRY_URL, scoreCardUrl } from "./context.js";
+import { MATCH_ENTRY_URL } from "./context.js";
 
 export type JobRow = {
   id: string;
@@ -75,7 +75,7 @@ export function bookmarkletView(publicUrl: string): Html {
       <p>Drag this link to the bookmarks bar, or long-press and copy its address: <a href="${href}">Score entry</a></p>
       <p>On a phone: save any page as a bookmark, then edit the bookmark and replace its address with:</p>
       <pre class="mono" style="white-space:pre-wrap;word-break:break-all">${href}</pre>
-      <p>Use: sign in to TennisLink on the <a href="${MATCH_ENTRY_URL}">match entry page</a>, open the match's Score Card page (each match page in this app links to it), tap the bookmark, enter the match code. Tap it again after Finish.</p>
+      <p>Use: sign in to TennisLink, then open the <a href="${MATCH_ENTRY_URL}">match entry page</a> again (signing in does not return you there), type the match number, and on the match's Score Card tap the bookmark and enter the match code. Tap it again after Finish.</p>
     </div>`;
 }
 
@@ -96,18 +96,18 @@ const stateText: Partial<Record<PipelineState, string>> = {
 const COACH_STATES: PipelineState[] = ["MATCH_DISCOVERED", "APPROVED", "SUBMITTING"];
 
 function coachCard(matchId: string, code: string, teams: string): Html {
-  const card = scoreCardUrl(matchId);
   const message = [
     `Match ${matchId}: ${teams}`,
-    `1. Sign in to TennisLink: ${MATCH_ENTRY_URL}`,
-    `2. Open the Score Card: ${card}`,
+    `1. Open the TennisLink match entry page: ${MATCH_ENTRY_URL}`,
+    `   If it asks you to sign in, sign in, then open that link again.`,
+    `2. Type match number ${matchId} and continue to its Score Card.`,
     `3. Tap the Score entry bookmark. Code: ${code}`,
   ].join("\n");
   return html`<div class="card">
     <h2>For the coach</h2>
     <ol>
-      <li>Sign in to TennisLink on the <a href="${MATCH_ENTRY_URL}">match entry page</a> (Sign In at the top).</li>
-      <li>Open the <a href="${card}">Score Card for match ${matchId}</a>. If TennisLink says you do not have privileges, you are signed out or not a captain on this match: sign in and open it again. If it still refuses, type ${matchId} on the match entry page.</li>
+      <li>Open the TennisLink <a href="${MATCH_ENTRY_URL}">match entry page</a>. If it asks you to sign in (Sign In at the top), sign in, then open the link again: TennisLink does not bring you back.</li>
+      <li>Type match number <span class="mono">${matchId}</span> and continue to its Score Card.</li>
       <li>Tap the Score entry bookmark and enter code <span class="mono">${code}</span>.</li>
     </ol>
     <p class="muted">To send to a coach:</p>

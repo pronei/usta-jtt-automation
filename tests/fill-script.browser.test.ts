@@ -8,7 +8,6 @@ import {
   MATCH_ENTRY_URL,
   PREFIX,
   contextFromForm,
-  scoreCardUrl,
 } from "../src/web/context.js";
 import { buildFillPlan } from "../src/web/fill.js";
 import { approvedFixture, formatRules } from "./web-fixtures.js";
@@ -107,13 +106,23 @@ test("fill: the script sets every planned field and posts the read-back", async 
 const plainPage = (text: string) =>
   `<!doctype html><html><head><meta charset="utf-8"></head><body><p>${text}</p></body></html>`;
 
-test("on another TennisLink page the script takes the code and links to the match's Score Card", async () => {
+test("on the match entry page the script takes the code and says which number to type", async () => {
   const { page, posts, close } = await openWith("capture", null, MATCH_ENTRY_URL, plainPage("Enter match number"));
   try {
-    assert.match((await page.textContent("#jtt-overlay")) ?? "", /Code accepted for match 123456/);
-    assert.equal(await page.getAttribute("#jtt-overlay a", "href"), scoreCardUrl("123456"));
+    assert.match((await page.textContent("#jtt-overlay")) ?? "", /Code accepted for match 123456\. Type 123456 here/);
+    assert.equal(await page.locator("#jtt-overlay a").count(), 0);
     assert.deepEqual(posts.map((p) => p.path), ["/api/handshake"]);
     assert.equal(await page.evaluate(() => sessionStorage.getItem("jtt_code")), "ABCD2345");
+  } finally {
+    await close();
+  }
+});
+
+test("on any other TennisLink page the script links to the match entry page", async () => {
+  const { page, close } = await openWith("capture", null, "https://tennislink.usta.com/Dashboard/Main/", plainPage("Dashboard"));
+  try {
+    assert.match((await page.textContent("#jtt-overlay")) ?? "", /type 123456/);
+    assert.equal(await page.getAttribute("#jtt-overlay a", "href"), MATCH_ENTRY_URL);
   } finally {
     await close();
   }
@@ -139,8 +148,8 @@ test("on TennisLink's refusal page the script explains signing in and calls noth
 test("a code for another match links to that match and is forgotten", async () => {
   const { page, close } = await openWith("capture", null, PAGE.replace("MatchID=123456", "MatchID=999999"));
   try {
-    assert.match((await page.textContent("#jtt-overlay")) ?? "", /this page is match 999999/);
-    assert.equal(await page.getAttribute("#jtt-overlay a", "href"), scoreCardUrl("123456"));
+    assert.match((await page.textContent("#jtt-overlay")) ?? "", /this page is match 999999\. To enter match 123456, type 123456/);
+    assert.equal(await page.getAttribute("#jtt-overlay a", "href"), MATCH_ENTRY_URL);
     assert.equal(await page.evaluate(() => sessionStorage.getItem("jtt_code")), null);
   } finally {
     await close();

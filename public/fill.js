@@ -9,8 +9,9 @@
   var ORIGIN = "https://tennislink.usta.com";
   var ENTRY_URL = ORIGIN + "/TeamTennis/Secure/EnterMatchNumber.aspx";
 
-  /* entry and preview: one match's Score Card. denied: where TennisLink sends a signed-out visitor,
-     or one without captain rights; the match id is gone by then. tennislink: any other TennisLink page. */
+  /* entry and preview: one match's Score Card. denied: where TennisLink sends a signed-out visitor, one
+     without captain rights, or anyone opening a Score Card directly; the match id is gone by then.
+     tennislink: any other TennisLink page. A Score Card is reached only through the match entry page. */
   function pageKind(loc) {
     if (loc.hostname !== "tennislink.usta.com") return "other";
     var path = loc.pathname.toLowerCase();
@@ -18,9 +19,6 @@
     if (path !== "/teamtennis/secure/matchscorecard.aspx") return "tennislink";
     var preview = (new URLSearchParams(loc.search).get("Preview") || "No").toLowerCase();
     return preview === "yes" ? "preview" : "entry";
-  }
-  function scoreCardUrl(matchId) {
-    return ORIGIN + "/TeamTennis/Secure/MatchScoreCard.aspx?MatchID=" + encodeURIComponent(matchId) + "&MatchTab=M&Preview=No";
   }
   function matchIdOf(loc) {
     return new URLSearchParams(loc.search).get("MatchID") || "";
@@ -152,7 +150,7 @@
     var kind = pageKind(location);
     if (kind === "other") { alert("This bookmark works on tennislink.usta.com. Sign in to TennisLink, open the Score Card page for the match, then tap it again."); return; }
     if (kind === "denied") {
-      show("TennisLink refused the last page: you are signed out, or this account is not a captain or coach on the match. Sign in on the match entry page, open the Score Card for the match again, then tap the bookmark.", ENTRY_URL, "Open the TennisLink match entry page");
+      show("TennisLink refused the last page: you are signed out, this account is not a captain or coach on the match, or the Score Card was opened directly. Open the match entry page (sign in there if asked, then open it again: TennisLink does not bring you back), type the match number, then tap the bookmark on the Score Card.", ENTRY_URL, "Open the TennisLink match entry page");
       return;
     }
     var pageMatch = matchIdOf(location);
@@ -161,15 +159,18 @@
     code = code.trim().toUpperCase();
     request(app, "/api/handshake", "POST", { code: code }).then(function (h) {
       if (!/^\d+$/.test(h.match_id || "")) throw new Error("The app has no match number for this code.");
-      var cardLink = scoreCardUrl(h.match_id), cardText = "Open the Score Card for match " + h.match_id;
+      var entryText = "Open the TennisLink match entry page";
       if (kind === "tennislink") {
         sessionStorage.setItem("jtt_code", code);
-        show("Code accepted for match " + h.match_id + ". Open its Score Card page and tap the bookmark there. If TennisLink then says you do not have privileges, sign in first (Sign In at the top of TennisLink) and open the link again.", cardLink, cardText);
+        if (location.pathname.toLowerCase() === "/teamtennis/secure/entermatchnumber.aspx")
+          show("Code accepted for match " + h.match_id + ". Type " + h.match_id + " here, continue to its Score Card, then tap the bookmark there. If TennisLink asks you to sign in first, sign in, then open this page again.");
+        else
+          show("Code accepted for match " + h.match_id + ". Open the match entry page, type " + h.match_id + ", then tap the bookmark on its Score Card.", ENTRY_URL, entryText);
         return;
       }
       if (h.match_id !== pageMatch) {
         sessionStorage.removeItem("jtt_code");
-        show("This code is for match " + h.match_id + "; this page is match " + pageMatch + ". To enter match " + h.match_id + ", open its Score Card. To enter this match instead, tap the bookmark again and type its code.", cardLink, cardText);
+        show("This code is for match " + h.match_id + "; this page is match " + pageMatch + ". To enter match " + h.match_id + ", type " + h.match_id + " on the match entry page. To enter this match instead, tap the bookmark again and type its code.", ENTRY_URL, entryText);
         return;
       }
       sessionStorage.setItem("jtt_code", code);
@@ -222,7 +223,7 @@
 
   window.__jtt = {
     pageKind: pageKind, readForm: readForm, applyOps: applyOps, readFields: readFields,
-    scoreCardUrl: scoreCardUrl, formIsBlank: formIsBlank, hasFinishButton: hasFinishButton,
+    formIsBlank: formIsBlank, hasFinishButton: hasFinishButton,
     ENTRY_URL: ENTRY_URL, main: main
   };
   var script = document.currentScript;

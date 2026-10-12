@@ -181,8 +181,9 @@ test("the job page tells the coach where to sign in, which page to open and whic
   const jobCode = store.codeFor(job.id)!.code;
   const text = await (await get(`/jobs/${job.id}`)).text();
   assert.ok(text.includes("For the coach"));
-  assert.ok(text.includes("MatchScoreCard.aspx?MatchID=654321&amp;MatchTab=M&amp;Preview=No"));
   assert.ok(text.includes("EnterMatchNumber.aspx"));
+  assert.ok(text.includes("Type match number 654321"));
+  assert.ok(!text.includes("MatchScoreCard.aspx"));
   assert.ok(text.includes(`Code: ${jobCode}`));
   assert.ok(!(await (await get(`/jobs/${jobId}`)).text()).includes("For the coach"));
   const bookmark = await (await get("/bookmarklet")).text();

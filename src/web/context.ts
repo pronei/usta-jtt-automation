@@ -8,12 +8,13 @@ import {
 export const PREFIX = "ctl00_mainContent_MatchIndividual1_Match_Ind_";
 export const DATE_CONTROL_ID = "ctl00_mainContent_MatchIndividual1_MatchActualDate";
 export const TENNISLINK_ORIGIN = "https://tennislink.usta.com";
-/** Opens without a session and carries TennisLink's own Sign In link; signed in, it takes a match number. */
+/**
+ * The only TennisLink page worth linking to. It opens without a session and carries TennisLink's own
+ * Sign In link (which does not return here afterwards); signed in, it takes a match number and leads to
+ * that match's Score Card. A Score Card opened directly is refused, signed in or not, with
+ * /TeamTennis/AccessDenied.htm, so there is no deep link to one.
+ */
 export const MATCH_ENTRY_URL = `${TENNISLINK_ORIGIN}/TeamTennis/Secure/EnterMatchNumber.aspx`;
-/** One match's entry form. Signed out, TennisLink answers it with /TeamTennis/AccessDenied.htm and drops the match id. */
-export function scoreCardUrl(matchId: string): string {
-  return `${TENNISLINK_ORIGIN}/TeamTennis/Secure/MatchScoreCard.aspx?MatchID=${MatchIdSchema.parse(matchId)}&MatchTab=M&Preview=No`;
-}
 const LINE_LABEL = /^#\s*(\d+)\s+(Singles|Doubles)\s*-\s*Scoring Format:\s*(.+?)\s*$/;
 const option = z.strictObject({ label: z.string(), value: z.string() });
 export const CapturedControlSchema = z.strictObject({

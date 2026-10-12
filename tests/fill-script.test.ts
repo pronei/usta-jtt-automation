@@ -8,7 +8,6 @@ import {
   MATCH_ENTRY_URL,
   PREFIX,
   contextFromForm,
-  scoreCardUrl,
 } from "../src/web/context.js";
 import { el, input, makeDoc, select, table } from "./fake-dom.js";
 import { formatRules } from "./web-fixtures.js";
@@ -18,7 +17,6 @@ type Jtt = {
   readForm(doc: unknown, loc: unknown): unknown;
   applyOps(doc: unknown, ops: { id: string; kind: string; value: string }[]): string[];
   readFields(doc: unknown, ids: string[]): Record<string, string>;
-  scoreCardUrl(matchId: string): string;
   formIsBlank(doc: unknown): boolean;
   hasFinishButton(doc: unknown): boolean;
   ENTRY_URL: string;
@@ -63,10 +61,8 @@ test("pageKind tells the entry page, the preview page, the refusal page, the res
   assert.equal(jtt.pageKind({ ...location, hostname: "example.org" }), "other");
 });
 
-test("the script builds the same TennisLink links as the server", () => {
-  const jtt = load(makeDoc([], ""));
-  assert.equal(jtt.scoreCardUrl("2743892"), scoreCardUrl("2743892"));
-  assert.equal(jtt.ENTRY_URL, MATCH_ENTRY_URL);
+test("the script links to the same match entry page as the server", () => {
+  assert.equal(load(makeDoc([], "")).ENTRY_URL, MATCH_ENTRY_URL);
 });
 
 test("a blank score form and an unpressed Finish button are recognised", () => {
